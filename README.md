@@ -14,9 +14,5 @@
 
 Висит в меню macOS и каждые полсекунды проверяет содержимое буфера обмена. Если в буфере оказывается ссылка на Фигму, то добавляется префикс [VPN, PROXY]. Можно включать и выключать, можно настраивать автозапуск при входе в систему.
 
-
-<img width="659" alt="Screenshot 2025-03-05 at 00 19 05" src="https://github.com/user-attachments/assets/2a68dd54-38db-434b-b474-108c3eaad286" />
-
-
-
+<img width="610" alt="Screenshot 2025-03-05 at 01 49 40" src="https://github.com/user-attachments/assets/d2797f8c-d5f1-40a3-aeeb-5a183283fc93" />
 
