@@ -13,4 +13,5 @@
 ---
 
 Приложение не подписано, поэтому после установки необходимо разрешить работу приложения в настройках macOS.
-[Вот гайд, как это сделать]([url](https://www.idownloadblog.com/2024/08/07/apple-macos-sequoia-gatekeeper-change-install-unsigned-apps-mac/))
+
+[Вот гайд, как это сделать](https://www.idownloadblog.com/2024/08/07/apple-macos-sequoia-gatekeeper-change-install-unsigned-apps-mac/)
