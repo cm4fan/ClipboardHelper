@@ -33,7 +33,7 @@ class AboutWindowController: NSWindowController {
 
 private class AboutContentView: NSView {
     init() {
-        super.init(frame: NSRect(x: 0, y: 0, width: 400, height: 260)) // Увеличили высоту
+        super.init(frame: NSRect(x: 0, y: 0, width: 400, height: 260))
         setupView()
     }
     
@@ -84,7 +84,7 @@ private class AboutContentView: NSView {
         let link = HyperlinkTextField()
         link.setLink(
             NSLocalizedString("Source_Code", comment: ""),
-            url: URL(string: "https://github.com/yourusername/clipboard-helper")!
+            url: URL(string: "https://github.com/cm4fan/ClipboardHelper")!
         )
         
         // Настройка layout
