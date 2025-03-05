@@ -16,7 +16,6 @@ struct ClipboardHelperApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var clipboardMonitor = ClipboardMonitor()
-    private let prefix = "**[VPN, PROXY]** "
     private let launchAtLoginKey = "LaunchAtLogin"
     private let helperBundleID = "com.yourcompany.ClipboardHelperLauncher"
     
@@ -75,18 +74,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: - Clipboard Monitoring
     private func setupClipboardMonitor() {
-        clipboardMonitor.onClipboardChange = { [weak self] text in
-            guard let self = self,
-                  self.clipboardMonitor.isEnabled,
-                  text.contains("figma.com"),
-                  !text.hasPrefix(self.prefix) else { return }
-            
-            let newText = self.prefix + text
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(newText, forType: .string)
+            clipboardMonitor.onClipboardChange = { [weak self] text in
+                guard let self = self, self.clipboardMonitor.isEnabled else { return }
+
+                let modifiedText = self.clipboardMonitor.processText(text)
+                if modifiedText != text {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(modifiedText, forType: .string)
+                }
+            }
+            clipboardMonitor.start() // Запуск монитора
         }
-        clipboardMonitor.start()
-    }
     
     private func updateStatusItemIcon() {
         let imageName = clipboardMonitor.isEnabled ?
@@ -160,6 +158,7 @@ class ClipboardMonitor {
     var onClipboardChange: ((String) -> Void)?
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
+    private let prefix = "**[VPN, PROXY]** "
     
     func start() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -169,10 +168,99 @@ class ClipboardMonitor {
             guard pasteboard.changeCount != self.lastChangeCount else { return }
             
             self.lastChangeCount = pasteboard.changeCount
-            guard let string = pasteboard.string(forType: .string) else { return }
+            guard let text = pasteboard.string(forType: .string) else { return }
             
-            self.onClipboardChange?(string)
+            let modifiedText = self.processText(text)
+            if modifiedText != text {
+                pasteboard.clearContents()
+                pasteboard.setString(modifiedText, forType: .string)
+            }
         }
+    }
+    
+    func processText(_ text: String) -> String {
+        // Проверяем, есть ли уже префикс в тексте
+        if text.contains(prefix) {
+            return text
+        }
+        
+        // Паттерн для поиска ссылок Figma
+        let figmaPattern = "(?<!\\*\\*\\[VPN, PROXY\\]\\*\\* )(https?://(?:www\\.)?figma\\.com[^\\s]*)"
+        guard let figmaRegex = try? NSRegularExpression(pattern: figmaPattern, options: .caseInsensitive) else {
+            return text
+        }
+        
+        // Паттерн для поиска последовательных ссылок через запятую или пробел
+        let consecutivePattern = "(https?://(?:www\\.)?figma\\.com[^\\s]*)(?:[,\\s]+(https?://(?:www\\.)?figma\\.com[^\\s]*))+"
+        guard let consecutiveRegex = try? NSRegularExpression(pattern: consecutivePattern, options: .caseInsensitive) else {
+            return text
+        }
+        
+        // Паттерн для поиска последовательных ссылок с новой строки
+        let newlinePattern = "(?m)^\\s*(https?://(?:www\\.)?figma\\.com[^\\s]*)\\s*$"
+        guard let newlineRegex = try? NSRegularExpression(pattern: newlinePattern, options: .caseInsensitive) else {
+            return text
+        }
+        
+        var result = text
+        var processedRanges: [NSRange] = []
+        
+        // Обрабатываем ссылки с новой строки
+        let newlineMatches = newlineRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
+        if newlineMatches.count >= 2 {
+            // Находим первую ссылку в группе
+            let firstMatch = newlineMatches[0]
+            let range = firstMatch.range(at: 1)
+            guard let swiftRange = Range(range, in: result) else { return result }
+            
+            // Добавляем префикс к первой ссылке
+            let link = String(result[swiftRange])
+            result.replaceSubrange(swiftRange, with: prefix + "\n" + link)
+            
+            // Добавляем все ссылки из группы в обработанные
+            for match in newlineMatches {
+                processedRanges.append(match.range)
+            }
+        }
+        
+        // Обрабатываем ссылки через запятую или пробел
+        let consecutiveMatches = consecutiveRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
+        for match in consecutiveMatches.reversed() {
+            let range = match.range
+            guard let swiftRange = Range(range, in: result) else { continue }
+            
+            let matchText = String(result[swiftRange])
+            let links = matchText.components(separatedBy: CharacterSet(charactersIn: ", "))
+                .filter { $0.hasPrefix("http") }
+            
+            if links.count >= 2 {
+                let firstLink = links[0]
+                let remainingLinks = links.dropFirst().joined(separator: ", ")
+                let replacement = prefix + firstLink + ", " + remainingLinks
+                result.replaceSubrange(swiftRange, with: replacement)
+                processedRanges.append(match.range)
+            }
+        }
+        
+        // Обрабатываем только одиночные ссылки, которые не входят в группы
+        let matches = figmaRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
+        for match in matches.reversed() {
+            let range = match.range(at: 1)
+            
+            // Проверяем, не входит ли ссылка в уже обработанную группу
+            let isInGroup = processedRanges.contains { processedRange in
+                NSIntersectionRange(range, processedRange).length > 0
+            }
+            
+            if !isInGroup {
+                guard let swiftRange = Range(range, in: result) else { continue }
+                let link = String(result[swiftRange])
+                let modifiedLink = prefix + link
+                result.replaceSubrange(swiftRange, with: modifiedLink)
+            }
+        }
+        
+        return result
     }
     
     func stop() {
