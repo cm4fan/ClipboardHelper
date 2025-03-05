@@ -179,87 +179,30 @@ class ClipboardMonitor {
     }
     
     func processText(_ text: String) -> String {
-        // Проверяем, есть ли уже префикс в тексте
-        if text.contains(prefix) {
-            return text
-        }
+        print("Input text: \(text)")
         
-        // Паттерн для поиска ссылок Figma
-        let figmaPattern = "(?<!\\*\\*\\[VPN, PROXY\\]\\*\\* )(https?://(?:www\\.)?figma\\.com[^\\s]*)"
-        guard let figmaRegex = try? NSRegularExpression(pattern: figmaPattern, options: .caseInsensitive) else {
-            return text
-        }
-        
-        // Паттерн для поиска последовательных ссылок через запятую или пробел
-        let consecutivePattern = "(https?://(?:www\\.)?figma\\.com[^\\s]*)(?:[,\\s]+(https?://(?:www\\.)?figma\\.com[^\\s]*))+"
-        guard let consecutiveRegex = try? NSRegularExpression(pattern: consecutivePattern, options: .caseInsensitive) else {
-            return text
-        }
-        
-        // Паттерн для поиска последовательных ссылок с новой строки
-        let newlinePattern = "(?m)^\\s*(https?://(?:www\\.)?figma\\.com[^\\s]*)\\s*$"
-        guard let newlineRegex = try? NSRegularExpression(pattern: newlinePattern, options: .caseInsensitive) else {
+        // Паттерн для поиска ссылок Figma без префикса
+        let linkPattern = "(?<!\\*\\*\\[VPN, PROXY\\]\\*\\* )(https?://(?:www\\.)?figma\\.com/[^\\s,]+)"
+        guard let linkRegex = try? NSRegularExpression(pattern: linkPattern, options: .caseInsensitive) else {
             return text
         }
         
         var result = text
-        var processedRanges: [NSRange] = []
         
-        // Обрабатываем ссылки с новой строки
-        let newlineMatches = newlineRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
-        if newlineMatches.count >= 2 {
-            // Находим первую ссылку в группе
-            let firstMatch = newlineMatches[0]
-            let range = firstMatch.range(at: 1)
-            guard let swiftRange = Range(range, in: result) else { return result }
-            
-            // Добавляем префикс к первой ссылке
-            let link = String(result[swiftRange])
-            result.replaceSubrange(swiftRange, with: prefix + "\n" + link)
-            
-            // Добавляем все ссылки из группы в обработанные
-            for match in newlineMatches {
-                processedRanges.append(match.range)
-            }
-        }
+        // Находим все ссылки
+        let matches = linkRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
+        print("Found \(matches.count) links")
         
-        // Обрабатываем ссылки через запятую или пробел
-        let consecutiveMatches = consecutiveRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
-        for match in consecutiveMatches.reversed() {
-            let range = match.range
-            guard let swiftRange = Range(range, in: result) else { continue }
-            
-            let matchText = String(result[swiftRange])
-            let links = matchText.components(separatedBy: CharacterSet(charactersIn: ", "))
-                .filter { $0.hasPrefix("http") }
-            
-            if links.count >= 2 {
-                let firstLink = links[0]
-                let remainingLinks = links.dropFirst().joined(separator: ", ")
-                let replacement = prefix + firstLink + ", " + remainingLinks
-                result.replaceSubrange(swiftRange, with: replacement)
-                processedRanges.append(match.range)
-            }
-        }
-        
-        // Обрабатываем только одиночные ссылки, которые не входят в группы
-        let matches = figmaRegex.matches(in: result, range: NSRange(result.startIndex..., in: result))
+        // Обрабатываем ссылки в обратном порядке, чтобы не нарушать индексы
         for match in matches.reversed() {
-            let range = match.range(at: 1)
-            
-            // Проверяем, не входит ли ссылка в уже обработанную группу
-            let isInGroup = processedRanges.contains { processedRange in
-                NSIntersectionRange(range, processedRange).length > 0
-            }
-            
-            if !isInGroup {
-                guard let swiftRange = Range(range, in: result) else { continue }
-                let link = String(result[swiftRange])
-                let modifiedLink = prefix + link
-                result.replaceSubrange(swiftRange, with: modifiedLink)
-            }
+            guard let linkRange = Range(match.range(at: 1), in: result) else { continue }
+            let linkText = String(result[linkRange])
+            print("Processing link: \(linkText)")
+            let modifiedLink = prefix + linkText
+            result.replaceSubrange(linkRange, with: modifiedLink)
         }
         
+        print("Final result: \(result)")
         return result
     }
     
