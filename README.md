@@ -4,7 +4,7 @@
 
 [Вот гайд, как это сделать](https://www.idownloadblog.com/2024/08/07/apple-macos-sequoia-gatekeeper-change-install-unsigned-apps-mac/)
 
-[Скачать первый релиз](https://github.com/cm4fan/ClipboardHelper/releases/download/release/ClipboardHelper.dmg)
+[Скачать релиз 1.1](https://github.com/cm4fan/ClipboardHelper/releases/download/1.1/ClipboardHelper.dmg)
 
 ---
 
